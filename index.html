@@ -171,19 +171,33 @@
 <body class="font-sans antialiased">
  
 <div class="topbar bg-field text-onfield border-b border-sun/40">
-  <div class="mx-auto max-w-7xl px-3 sm:px-8 py-1.5 flex flex-wrap items-center justify-between gap-x-2">
-    <a href="#top" class="btn order-1 inline-flex items-center font-display text-[15px] sm:text-lg text-sun whitespace-nowrap">Huntsville Fresh</a>
-    <button id="themeBtn" class="order-2 lg:order-3 rounded-full bg-sun text-onsun px-3 sm:px-4 cursor-pointer whitespace-nowrap text-sm font-semibold" aria-pressed="false"></button>
-    <nav class="navscroll order-3 lg:order-2 w-full lg:w-auto flex items-center gap-1 overflow-x-auto text-sm font-semibold -mx-1 lg:mx-0" aria-label="Page">
-      <a href="#find" class="btn shrink-0 inline-flex items-center px-2 lg:px-3 underline underline-offset-4">Places</a>
-      <a href="#produce" class="btn shrink-0 inline-flex items-center px-2 lg:px-3 underline underline-offset-4">Benefits</a>
-      <a href="#menus" class="btn shrink-0 inline-flex items-center px-2 lg:px-3 underline underline-offset-4">Fall menus</a>
-      <a href="#recipes" class="btn shrink-0 inline-flex items-center px-2 lg:px-3 underline underline-offset-4">Recipes</a>
-      <a href="#dressings" class="btn shrink-0 inline-flex items-center px-2 lg:px-3 underline underline-offset-4">Dressings</a>
-      <a href="#grow" class="btn shrink-0 inline-flex items-center px-2 lg:px-3 underline underline-offset-4">Grow kale</a>
-      <a href="#group" class="btn shrink-0 inline-flex items-center px-2 lg:px-3 underline underline-offset-4">Garden groups</a>
+  <div class="mx-auto max-w-7xl px-3 sm:px-8 py-1.5 flex items-center justify-between gap-2">
+    <a href="#top" class="btn inline-flex items-center font-display text-[15px] sm:text-lg text-sun whitespace-nowrap">Huntsville Fresh</a>
+    <nav class="hidden lg:flex items-center gap-1 text-sm font-semibold" aria-label="Page">
+      <a href="#menus" class="btn shrink-0 inline-flex items-center px-2 xl:px-3 underline underline-offset-4">Fall menus</a>
+      <a href="#recipes" class="btn shrink-0 inline-flex items-center px-2 xl:px-3 underline underline-offset-4">Recipes</a>
+      <a href="#dressings" class="btn shrink-0 inline-flex items-center px-2 xl:px-3 underline underline-offset-4">Dressings</a>
+      <a href="#find" class="btn shrink-0 inline-flex items-center px-2 xl:px-3 underline underline-offset-4">Places</a>
+      <a href="#produce" class="btn shrink-0 inline-flex items-center px-2 xl:px-3 underline underline-offset-4">Benefits</a>
+      <a href="#grow" class="btn shrink-0 inline-flex items-center px-2 xl:px-3 underline underline-offset-4">Grow kale</a>
+      <a href="#group" class="btn shrink-0 inline-flex items-center px-2 xl:px-3 underline underline-offset-4">Garden groups</a>
     </nav>
+    <div class="flex items-center gap-2 shrink-0">
+      <button id="menuBtn" class="lg:hidden inline-flex items-center gap-1.5 rounded-full border-2 border-sun px-3 text-sm font-semibold cursor-pointer whitespace-nowrap" aria-expanded="false" aria-controls="mobileNav"><span aria-hidden="true" id="menuIcon">☰</span> Sections</button>
+      <button id="themeBtn" class="rounded-full bg-sun text-onsun px-3 sm:px-4 cursor-pointer whitespace-nowrap text-sm font-semibold" aria-pressed="false"></button>
+    </div>
   </div>
+  <nav id="mobileNav" class="lg:hidden border-t border-sun/40" aria-label="Page sections" hidden>
+    <div class="mx-auto max-w-7xl px-3 sm:px-8 py-2 grid grid-cols-2 sm:grid-cols-4 gap-1 text-[15px]">
+      <a href="#menus" class="btn flex items-center rounded-lg px-3 font-semibold hover:bg-onfield/10">Fall menus</a>
+      <a href="#recipes" class="btn flex items-center rounded-lg px-3 font-semibold hover:bg-onfield/10">Recipes</a>
+      <a href="#dressings" class="btn flex items-center rounded-lg px-3 font-semibold hover:bg-onfield/10">Dressings</a>
+      <a href="#find" class="btn flex items-center rounded-lg px-3 font-semibold hover:bg-onfield/10">Places</a>
+      <a href="#produce" class="btn flex items-center rounded-lg px-3 font-semibold hover:bg-onfield/10">Benefits</a>
+      <a href="#grow" class="btn flex items-center rounded-lg px-3 font-semibold hover:bg-onfield/10">Grow kale</a>
+      <a href="#group" class="btn flex items-center rounded-lg px-3 font-semibold hover:bg-onfield/10">Garden groups</a>
+    </div>
+  </nav>
 </div>
 <header id="top" class="bg-field text-onfield">
   <div class="mx-auto max-w-7xl px-5 sm:px-8 pt-8 pb-10 sm:pt-16 sm:pb-16 grid gap-10 lg:grid-cols-[1.4fr_1fr] lg:items-end">
@@ -208,7 +222,7 @@
 <main>
 
    <!-- ============ Fall menus ============ -->
-  <section id="menus" class="bg-field text-onfield scroll-mt-28 lg:scroll-mt-14">
+  <section id="menus" class="bg-field text-onfield scroll-mt-16">
     <div class="furrows" aria-hidden="true"></div>
     <div class="mx-auto max-w-7xl px-4 sm:px-8 pt-12 pb-14">
       <div class="grid gap-6 lg:grid-cols-[1fr_1.2fr] lg:items-end">
@@ -220,7 +234,7 @@
   </section>
  
   <!-- ============ Recipes ============ -->
-  <section id="recipes" class="mx-auto max-w-7xl px-4 sm:px-8 pt-14 pb-6 scroll-mt-28 lg:scroll-mt-14">
+  <section id="recipes" class="mx-auto max-w-7xl px-4 sm:px-8 pt-14 pb-6 scroll-mt-16">
     <h2 class="font-display text-3xl sm:text-4xl border-l-8 border-sun pl-3">Fall recipes, cooked and raw</h2>
     <p class="mt-2 text-muted max-w-2xl">Raw, baked, or lightly cooked. Each way of cooking has something going for it: raw keeps all the vitamin C, roasting brings out sweetness, and a quick steam or sauté keeps vegetables bright with little effort. Apples come from local orchards this time of year; bananas and mangoes don't grow in North Alabama, so pick those up at the grocery store. Every raw recipe is vegan and uses six ingredients or fewer.</p>
  
@@ -239,7 +253,7 @@
   </section>
 
   <!-- ============ Dressings ============ -->
-  <section id="dressings" class="mx-auto max-w-7xl px-4 sm:px-8 pt-14 pb-6 scroll-mt-28 lg:scroll-mt-14">
+  <section id="dressings" class="mx-auto max-w-7xl px-4 sm:px-8 pt-14 pb-6 scroll-mt-16">
     <h2 class="font-display text-3xl sm:text-4xl border-l-8 border-sun pl-3">Make your own dressing</h2>
     <p class="mt-2 text-muted max-w-2xl">A jar, five minutes, and simple ingredients. All of them are vegan, and seven use no oil at all: tahini, plant yogurt, avocado, nut butter, or blended fruit makes them creamy instead. Shake, taste on a leaf, and adjust.</p>
 
@@ -251,7 +265,7 @@
       </div>
       <div class="min-w-0">
         <fieldset>
-          <legend class="text-sm font-semibold mb-1">-</legend>
+          <legend class="text-sm font-semibold mb-1">Oil</legend>
           <div class="flex flex-wrap rounded-lg border border-line overflow-hidden" id="dressingBtns"></div>
         </fieldset>
         <p class="mt-4 text-sm text-muted" id="dressingCount" aria-live="polite"></p>
@@ -269,12 +283,12 @@
   </section>
  
   
-  <section id="find" class="mx-auto max-w-7xl px-4 sm:px-8 pt-10 sm:pt-12 scroll-mt-28 lg:scroll-mt-14">
+  <section id="find" class="mx-auto max-w-7xl px-4 sm:px-8 pt-10 sm:pt-12 scroll-mt-16">
     <h2 class="font-display text-3xl sm:text-4xl border-l-8 border-sun pl-3">Find a market or farm</h2>
     <p class="mt-2 text-muted max-w-2xl">Pick a place from the list or the map. Hours come straight from the listings, and many places are seasonal, so call ahead before a long drive.</p>
  
     <div class="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
-      <div>
+      <div class="min-w-0">
         <div class="rounded-xl bg-card border border-line p-4 grid gap-3">
           <label class="grid gap-1 text-sm font-semibold">Search by name, town, or food
             <input id="q" type="search" placeholder="Try peaches, Madison, or eggs" class="rounded-lg border border-line bg-paper px-3 py-2 font-normal text-base text-ink placeholder:text-muted">
@@ -282,7 +296,7 @@
           <div class="grid gap-3 sm:flex sm:flex-wrap sm:items-end">
             <fieldset>
               <legend class="text-sm font-semibold mb-1">Type of place</legend>
-              <div class="flex w-full sm:w-auto rounded-lg border border-line overflow-hidden" id="catBtns"></div>
+              <div class="flex flex-wrap w-full sm:w-auto rounded-lg border border-line overflow-hidden" id="catBtns"></div>
             </fieldset>
             <label class="grid gap-1 text-sm font-semibold">Open on
               <select id="day" class="rounded-lg border border-line bg-paper px-3 py-2 font-normal text-base text-ink"></select>
@@ -293,7 +307,7 @@
         <div id="list" class="mt-3 grid gap-3"></div>
       </div>
  
-      <div class="lg:sticky lg:top-16 lg:self-start order-first lg:order-none scroll-mt-28 lg:scroll-mt-16" id="mapWrap">
+      <div class="lg:sticky lg:top-16 lg:self-start order-first lg:order-none scroll-mt-16" id="mapWrap">
         <div class="rounded-xl overflow-hidden border border-line bg-card">
           <div class="flex flex-wrap items-center justify-between gap-2 px-3 py-2 border-b border-line">
             <div class="flex items-center gap-4 text-sm">
@@ -312,14 +326,14 @@
     </div>
   </section>
  
-  <section id="produce" class="mx-auto max-w-7xl px-4 sm:px-8 pt-14 pb-16 scroll-mt-28 lg:scroll-mt-14">
+  <section id="produce" class="mx-auto max-w-7xl px-4 sm:px-8 pt-14 pb-16 scroll-mt-16">
     <h2 class="font-display text-3xl sm:text-4xl border-l-8 border-sun pl-3">What's good for you, and when</h2>
     <p class="mt-2 text-muted max-w-2xl">The dark bars with a check-style underline show the usual North Alabama harvest months. Open any card for the health benefits, a picking tip, and the places that grow it.</p>
     <div id="produceGrid" class="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3"></div>
   </section>
  
  <!-- ============ Grow kale ============ -->
-  <section id="grow" class="mx-auto max-w-7xl px-4 sm:px-8 pt-14 pb-6 scroll-mt-28 lg:scroll-mt-14">
+  <section id="grow" class="mx-auto max-w-7xl px-4 sm:px-8 pt-14 pb-6 scroll-mt-16">
     <h2 class="font-display text-3xl sm:text-4xl border-l-8 border-sun pl-3">Grow your own kale, starting with one plant</h2>
     <p class="mt-2 text-muted max-w-2xl">Kale is the easiest green to grow through a North Alabama fall and winter. Skip the seeds: a starter plant from the garden center at Home Depot or Lowe's gets you picking leaves in a few weeks.</p>
  
@@ -360,7 +374,7 @@
   </section>
  
   <!-- ============ Garden group ============ -->
-  <section id="group" class="mx-auto max-w-7xl px-4 sm:px-8 pt-14 pb-16 scroll-mt-28 lg:scroll-mt-14">
+  <section id="group" class="mx-auto max-w-7xl px-4 sm:px-8 pt-14 pb-16 scroll-mt-16">
     <h2 class="font-display text-3xl sm:text-4xl border-l-8 border-sun pl-3">For a huddle group that gardens and eats fresh</h2>
     <p class="mt-2 text-muted max-w-2xl">Four to eight people, a few pots each, and a shared table once a month. A group makes gardening cheaper, cuts down on waste, and keeps everyone going when the novelty wears off.</p>
  
@@ -1509,6 +1523,17 @@ document.addEventListener("click", e => {
 drawCats();
 drawList();
  
+/* ---------- Mobile section menu ---------- */
+const menuBtn = document.getElementById("menuBtn"), mobileNav = document.getElementById("mobileNav");
+function setMenu(open) {
+  mobileNav.hidden = !open;
+  menuBtn.setAttribute("aria-expanded", String(open));
+  document.getElementById("menuIcon").textContent = open ? "✕" : "☰";
+}
+menuBtn.onclick = () => setMenu(mobileNav.hidden);
+mobileNav.addEventListener("click", e => { if (e.target.closest("a")) setMenu(false); });
+document.addEventListener("keydown", e => { if (e.key === "Escape" && !mobileNav.hidden) { setMenu(false); menuBtn.focus(); } });
+
 /* ---------- Light / dark mode ---------- */
 const themeBtn = document.getElementById("themeBtn"), root = document.documentElement;
 const currentTheme = () => root.getAttribute("data-theme") || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
