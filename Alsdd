@@ -1,0 +1,305 @@
+Tearing down an AKS Cluster safely is like closing down our digital shopping mall for good. You don't just dynamically bulldoze the building while shops are still open and vaults are still locked inside! If you just delete the cluster immediately, Azure might leave behind "orphaned" items—like expensive Load Balancers, Public IP addresses, or unattached hard drives—that keep charging your credit card every month.
+Here is how a safe, step-by-step Decommission Script (decommission-aks.sh) works using our mall analogy:
+ * Step 1: Evict the Stores & Security Desk (Helm Releases & Deployments): First, we check who is inside the data, identity, platform-foundation, and istio-ingress floors. When you say "yes," we cleanly shut down the stores and the Istio front security desk so Azure unhooks the cloud Load Balancer properly.
+ * Step 2: Empty the Fireproof Vaults (Persistent Volumes & Disks): Remember how we put a Retain safety lock and a helm.sh/resource-policy: keep sticker on your PostgreSQL and Keycloak vaults? Because of that safety lock, uninstalling Helm won't delete your data. This step shows you every vault still sitting on the floor and asks if you want to permanently shred them or leave them safe in Azure.
+ * Step 3: Release the Street Address (Static Public IP): We check the permanent street address (Public IP) reserved for Istio and ask before releasing it back to Azure.
+ * Step 4: Demolish the Mall Building (The AKS Cluster): We list the cluster and its node wings (systempool and userpool) and ask for confirmation before tearing down the virtual machines.
+ * Step 5: Tear Up the Parking Lot & Land (VNet & Resource Group): Finally, we check the private road network (VNet) and the main Azure folder (Resource Group) to make sure zero leftover cloud parts remain.
+Updated Project Folder Structure
+Place decommission-aks.sh right next to provision-aks.sh:
+aks-foundation/
+├── provision-aks.sh
+├── decommission-aks.sh      <-- New interactive teardown script
+└── helm/
+    ├── istio-gateway-values.yaml
+    └── cluster-foundation/
+        ├── Chart.yaml
+        ├── values.yaml
+        └── templates/
+            ├── namespaces.yaml
+            ├── storageclass.yaml
+            ├── pvcs.yaml
+            └── gateway.yaml
+
+The Interactive Decommission Script (decommission-aks.sh)
+Best Practices Built Into This Script
+ * Live Inventory Inspection: Before every single step, the script runs kubectl, helm, or az commands to show you the exact live Deployments, Services, PVCs, Disks, and IPs that are about to be affected.
+ * Granular Step-by-Step Confirmation: You can type y to approve a step, or n to skip it (for example, if you want to delete the apps and Istio to save compute money, but keep the PostgreSQL disks and VNet intact).
+ * Retained Disk Cleanup: Because our StorageClass uses reclaimPolicy: Retain, deleting a Kubernetes PVC leaves the underlying Azure Managed Disk alive in the MC_ node resource group. Step 2 specifically checks for those leftover Azure disks so you don't get billed for ghost storage.
+ * Local Kubeconfig Cleanup: Once the cluster is gone, it cleans up the dead connection entry from your laptop's ~/.kube/config file.
+#!/usr/bin/env bash
+# ==============================================================================
+# Script Name: decommission-aks.sh
+# Description: Safely tears down the AKS cluster, Istio mesh, Helm releases,
+#              retained Persistent Volumes (Postgres/Keycloak), Static IPs,
+#              Virtual Networks, and Resource Groups with interactive
+#              inventory inspection and confirmation at every single step.
+# ==============================================================================
+
+set -euo pipefail
+
+# --- Default Values (Match provision-aks.sh defaults) ---
+CLUSTER_NAME="zactonics-aks"
+RESOURCE_GROUP="rg-zactonics-aks"
+AUTO_APPROVE=false
+DRY_RUN=false
+
+usage() {
+  cat <<EOF
+Usage: $(basename "$0") [OPTIONS]
+
+Options:
+  -n, --name <string>          AKS Cluster Name (default: $CLUSTER_NAME)
+  -g, --resource-group <name>  Azure Resource Group (default: $RESOURCE_GROUP)
+  --auto-approve               Skip interactive prompts (DANGEROUS: deletes everything!)
+  --dry-run                    Show inventory at each step without deleting anything
+  -h, --help                   Show this help message
+
+Example:
+  ./decommission-aks.sh -n zactonics-core-aks -g rg-zactonics-core
+EOF
+  exit 1
+}
+
+# --- Parse Command-Line Arguments ---
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -n|--name) CLUSTER_NAME="$2"; shift 2 ;;
+    -g|--resource-group) RESOURCE_GROUP="$2"; shift 2 ;;
+    --auto-approve) AUTO_APPROVE=true; shift 1 ;;
+    --dry-run) DRY_RUN=true; shift 1 ;;
+    -h|--help) usage ;;
+    *) echo "Unknown parameter passed: $1"; usage ;;
+  esac
+done
+
+# --- Helper Function for Step Confirmations ---
+confirm_step() {
+  local prompt_msg="$1"
+  if [[ "$DRY_RUN" == true ]]; then
+    echo "    [DRY-RUN] Would ask: '$prompt_msg' -> Skipping actual deletion."
+    return 1
+  fi
+  if [[ "$AUTO_APPROVE" == true ]]; then
+    echo "    [AUTO-APPROVE] Proceeding with: $prompt_msg"
+    return 0
+  fi
+
+  while true; do
+    read -r -p "👉 $prompt_msg [y/N]: " response
+    case "$response" in
+      [yY][eE][sS]|[yY]) return 0 ;;
+      [nN][oO]|[nN]|"") echo "    ⏭️  Skipping this step."; return 1 ;;
+      *) echo "    Please answer 'y' (yes) or 'n' (no)." ;;
+    esac
+  done
+}
+
+# --- Pre-Flight Check ---
+for cmd in az kubectl helm; do
+  if ! command -v "$cmd" &>/dev/null; then
+    echo "[ERROR] Required command '$cmd' is not installed." >&2
+    exit 1
+  fi
+done
+
+echo "=================================================================="
+echo " 🛑 AKS Cluster & Foundation Decommissioning Wizard"
+echo "=================================================================="
+echo " Target Cluster Name   : $CLUSTER_NAME"
+echo " Target Resource Group : $RESOURCE_GROUP"
+echo " Dry-Run Mode          : $DRY_RUN"
+echo "=================================================================="
+
+# Check if Resource Group exists at all
+if ! az group exists --name "$RESOURCE_GROUP" | grep -q "true"; then
+  echo "[INFO] Resource Group '$RESOURCE_GROUP' does not exist in Azure. Nothing to decommission!"
+  exit 0
+fi
+
+# Check if Cluster exists and connect kubectl
+CLUSTER_EXISTS=false
+NODE_RG=""
+if az aks show --resource-group "$RESOURCE_GROUP" --name "$CLUSTER_NAME" &>/dev/null; then
+  CLUSTER_EXISTS=true
+  NODE_RG=$(az aks show --resource-group "$RESOURCE_GROUP" --name "$CLUSTER_NAME" --query nodeResourceGroup -o tsv)
+  echo "--> Connecting kubectl to '$CLUSTER_NAME' to inspect running services..."
+  az aks get-credentials --resource-group "$RESOURCE_GROUP" --name "$CLUSTER_NAME" --overwrite-existing &>/dev/null || true
+else
+  echo "[WARN] AKS Cluster '$CLUSTER_NAME' not found in '$RESOURCE_GROUP'. Skipping in-cluster K8s steps."
+fi
+
+# ==============================================================================
+# STEP 1: Decommission In-Cluster Services, Deployments & Helm Releases
+# ==============================================================================
+if [[ "$CLUSTER_EXISTS" == true ]]; then
+  echo ""
+  echo "------------------------------------------------------------------"
+  echo " STEP 1 of 5: App Workloads, Services & Istio Mesh (Helm Releases)"
+  echo "------------------------------------------------------------------"
+  echo "Checking active Helm releases across all namespaces..."
+  helm list -A || true
+
+  echo ""
+  echo "Checking active Deployments, StatefulSets, and Services in target namespaces..."
+  kubectl get deployments,statefulsets,svc -n data -n identity -n platform-foundation -n istio-ingress -n istio-system 2>/dev/null || true
+
+  echo ""
+  if confirm_step "Delete all foundation Helm releases, Istio Gateways, and Services shown above?"; then
+    echo "    Uninstalling Helm release 'cluster-foundation'..."
+    helm uninstall cluster-foundation -n platform-foundation --ignore-not-found || true
+
+    echo "    Uninstalling Helm release 'istio-ingressgateway' (detaching Azure LoadBalancer)..."
+    helm uninstall istio-ingressgateway -n istio-ingress --ignore-not-found --wait || true
+
+    echo "    Uninstalling Helm release 'istiod' and 'istio-base'..."
+    helm uninstall istiod -n istio-system --ignore-not-found || true
+    helm uninstall istio-base -n istio-system --ignore-not-found || true
+
+    echo "    Deleting application deployments/services in 'identity' and 'data' namespaces..."
+    kubectl delete all --all -n identity --ignore-not-found || true
+    kubectl delete all --all -n data --ignore-not-found || true
+    echo "    ✅ Step 1 Complete: Services, Deployments, and Istio Mesh removed."
+  fi
+
+  # ============================================================================
+  # STEP 2: Decommission Persistent Volume Claims (PVCs) & Retained Azure Disks
+  # ============================================================================
+  echo ""
+  echo "------------------------------------------------------------------"
+  echo " STEP 2 of 5: Persistent Volumes (PostgreSQL & Keycloak Vaults)"
+  echo "------------------------------------------------------------------"
+  echo "Because your volumes use 'helm.sh/resource-policy: keep' and 'Retain',"
+  echo "they are protected from accidental deletion during Step 1."
+  echo ""
+  echo "Current PersistentVolumeClaims (PVCs) and PersistentVolumes (PVs):"
+  kubectl get pvc,pv -A || true
+
+  if [[ -n "$NODE_RG" ]]; then
+    echo ""
+    echo "Underlying Azure Managed Disks in Node Resource Group ($NODE_RG):"
+    az disk list --resource-group "$NODE_RG" --query "[].{Name:name, SizeGB:diskSizeGb, State:diskState, SKU:sku.name}" -o table || true
+  fi
+
+  echo ""
+  if confirm_step "PERMANENTLY DELETE all PostgreSQL/Keycloak PVCs, PVs, and Azure Disks?"; then
+    echo "    Deleting PVCs in 'data' and 'identity' namespaces..."
+    kubectl delete pvc --all -n data --ignore-not-found || true
+    kubectl delete pvc --all -n identity --ignore-not-found || true
+
+    echo "    Deleting custom StorageClass 'managed-csi-premium-retain'..."
+    kubectl delete storageclass managed-csi-premium-retain --ignore-not-found || true
+
+    echo "    Deleting namespaces 'data', 'identity', 'platform-foundation', 'istio-ingress', 'istio-system'..."
+    kubectl delete ns data identity platform-foundation istio-ingress istio-system --ignore-not-found || true
+
+    if [[ -n "$NODE_RG" ]]; then
+      echo "    Checking for any retained/unattached Azure Disks in '$NODE_RG'..."
+      DISK_IDS=$(az disk list --resource-group "$NODE_RG" --query "[?diskState=='Unattached' || diskState=='Reserved'].id" -o tsv)
+      if [[ -n "$DISK_IDS" ]]; then
+        echo "    Deleting retained Azure Managed Disks..."
+        az disk delete --ids $DISK_IDS --yes --output none
+      fi
+    fi
+    echo "    ✅ Step 2 Complete: Persistent volumes and Azure disks wiped."
+  fi
+fi
+
+# ==============================================================================
+# STEP 3: Decommission Static Public IP for Istio Gateway
+# ==============================================================================
+echo ""
+echo "------------------------------------------------------------------"
+echo " STEP 3 of 5: Reserved Static Public IP Address"
+echo "------------------------------------------------------------------"
+PUBLIC_IP_NAME="${CLUSTER_NAME}-istio-pip"
+
+if [[ -n "$NODE_RG" ]] && az network public-ip show --resource-group "$NODE_RG" --name "$PUBLIC_IP_NAME" &>/dev/null; then
+  echo "Found Reserved Static Public IP in '$NODE_RG':"
+  az network public-ip show --resource-group "$NODE_RG" --name "$PUBLIC_IP_NAME" \
+    --query "{Name:name, IPAddress:ipAddress, SKU:sku.name, Allocation:publicIpAllocationMethod}" -o table
+
+  echo ""
+  if confirm_step "Release and delete Static Public IP '$PUBLIC_IP_NAME'?"; then
+    az network public-ip delete --resource-group "$NODE_RG" --name "$PUBLIC_IP_NAME" --output none
+    echo "    ✅ Step 3 Complete: Static Public IP released."
+  fi
+else
+  echo "No standalone Static Public IP '$PUBLIC_IP_NAME' found (or already removed)."
+fi
+
+# ==============================================================================
+# STEP 4: Decommission AKS Cluster & Node Pools
+# ==============================================================================
+echo ""
+echo "------------------------------------------------------------------"
+echo " STEP 4 of 5: AKS Cluster & Node Pools (System + User Wings)"
+echo "------------------------------------------------------------------"
+if [[ "$CLUSTER_EXISTS" == true ]]; then
+  echo "Active Node Pools inside AKS Cluster '$CLUSTER_NAME':"
+  az aks nodepool list --resource-group "$RESOURCE_GROUP" --cluster-name "$CLUSTER_NAME" \
+    --query "[].{PoolName:name, Mode:mode, VMSize:vmSize, NodeCount:count, State:provisioningState}" -o table
+
+  echo ""
+  if confirm_step "Delete the entire AKS Cluster '$CLUSTER_NAME' and its Node Pools?"; then
+    echo "    Deleting AKS Cluster '$CLUSTER_NAME' (this takes a few minutes)..."
+    az aks delete --resource-group "$RESOURCE_GROUP" --name "$CLUSTER_NAME" --yes --output none
+
+    echo "    Cleaning up local ~/.kube/config context for '$CLUSTER_NAME'..."
+    kubectl config delete-context "$CLUSTER_NAME" &>/dev/null || true
+    kubectl config delete-cluster "$CLUSTER_NAME" &>/dev/null || true
+    kubectl config unset "users.clusterUser_${RESOURCE_GROUP}_${CLUSTER_NAME}" &>/dev/null || true
+
+    echo "    ✅ Step 4 Complete: AKS Cluster destroyed and local kubeconfig cleaned."
+  fi
+else
+  echo "AKS Cluster '$CLUSTER_NAME' is already deleted."
+fi
+
+# ==============================================================================
+# STEP 5: Decommission Custom VNet & Main Azure Resource Group
+# ==============================================================================
+echo ""
+echo "------------------------------------------------------------------"
+echo " STEP 5 of 5: Virtual Network (VNet) & Azure Resource Group"
+echo "------------------------------------------------------------------"
+echo "Remaining Azure resources inside Resource Group '$RESOURCE_GROUP':"
+az resource list --resource-group "$RESOURCE_GROUP" \
+  --query "[].{Name:name, Type:type, Location:location}" -o table || true
+
+echo ""
+if confirm_step "Delete the Virtual Network and the ENTIRE Resource Group '$RESOURCE_GROUP'?"; then
+  echo "    Deleting Resource Group '$RESOURCE_GROUP' and all remaining contents..."
+  az group delete --name "$RESOURCE_GROUP" --yes --output none
+  echo "    ✅ Step 5 Complete: Resource Group '$RESOURCE_GROUP' completely removed."
+fi
+
+echo ""
+echo "=================================================================="
+echo " 🏁 Decommissioning Process Finished!"
+echo "=================================================================="
+
+How to Use the Decommission Script
+1. Make it executable
+chmod +x decommission-aks.sh
+
+2. Run a Safe "Practice Inspection" (--dry-run)
+Want to see every service, deployment, volume, and IP address that would be deleted without actually touching a single thing in Azure? Run:
+./decommission-aks.sh \
+  --name "zactonics-core-aks" \
+  --resource-group "rg-zactonics-core" \
+  --dry-run
+
+3. Run the Interactive Step-by-Step Teardown
+When you are ready to decommission, run it normally and it will pause at each of the 5 stages, show you a live table of what is inside that stage, and ask [y/N]:
+./decommission-aks.sh \
+  --name "zactonics-core-aks" \
+  --resource-group "rg-zactonics-core"
+
+Pro-Tip: Partial Teardown (Saving Your Data Vaults!)
+Because the script asks for your permission at every step, you can also use it to pause your cloud bill over the weekend without losing your database:
+ * Step 1 (Services & Istio): Type y (shuts down traffic cleanly).
+ * Step 2 (Postgres & Keycloak Volumes): Type n (keeps your disks safe!).
+ * Step 3 (Static IP): Type n (keeps your IP address reserved).
+ * Step 4 (AKS Cluster): Type n (or scale node pools to zero).
+ * Step 5 (Resource Group): Type n.
